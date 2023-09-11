@@ -5,28 +5,34 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 let camera, scene, renderer, controls;
 let gui;
-let mesh; 
+let mesh;
+let useControls = false;
 
 const API = {
   offsetX: 0,
   offsetY: 0,
-  repeatX: 0.25,
-  repeatY: 0.25,
-  rotation: Math.PI / 4, // positive is counterclockwise
+  repeatX: 1,
+  repeatY: 1,
+  rotation: 0, // positive is counterclockwise
   centerX: 0.5,
-  centerY: 0.5
+  centerY: 0.5,
+  cameraX: 10000,
+  cameraY: 1200,
+  cameraZ: 1350.0,
+  cameraLookX: 4200.0,
+  cameraLookY: 0.0,
+  cameraLookZ: 1350.0,
+  cameraRotation : 0,
 };
-
 
 init();
 animate();
 var rot = 0;
 var globaltex;
 
-
 function createTexture(curves) {
-  var width = 1,
-    height = 2;
+  var width = curves.getLength(),
+    height = 1;
   var size = width * height;
   var data = new Uint8Array(4 * size);
   for (let i = 0; i < size; i++) {
@@ -34,18 +40,18 @@ function createTexture(curves) {
       a1 = i / size,
       a2 = (i % width) / width;
     // set r, g, b, and alpha data values
-    data[stride] = Math.floor(255 * (a1 +1)); // red
-    data[stride + 1] = 255 - Math.floor(255 * (a1+1)); // green
-    data[stride + 2] = Math.floor(255 * a2); // blue
+    data[stride] = Math.floor(255 * a1); // red
+    data[stride + 1] = 255 - Math.floor(255 * a1); // green
+    data[stride + 2] = 0; // blue
     data[stride + 3] = 255; // alpha
   }
   console.log(data);
   var texture = new THREE.DataTexture(data, width, height);
 
-  texture = new THREE.TextureLoader().load("./textures/uv_grid_opengl.jpg");
+  //texture = new THREE.TextureLoader().load("./textures/uv_grid_opengl.jpg");
 
   texture.repeat.set(1, 1);
-  //texture.rotation =  0; 
+  //texture.rotation =  0;
   texture.needsUpdate = true;
 
   return texture;
@@ -68,21 +74,37 @@ function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x222222);
 
-  camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
+  // camera = new THREE.PerspectiveCamera(
+  //   75,
+  //   window.innerWidth / window.innerHeight,
+  //   0.1,
+  //   1000
+  // );
+  // camera.position.set(0, 200, 0);
+  // // camera.lookAt(new THREE.Vector3(0, 0, 0).applyQuaternion(camera.quaternion));
+
+  var frustumHeight = 100;
+  var aspect = window.innerWidth / window.innerHeight;
+  camera = new THREE.OrthographicCamera(
+    (-frustumHeight * aspect) / 2,
+    (frustumHeight * aspect) / 2,
+    frustumHeight / 2,
+    -frustumHeight / 2,
+    -10000000,
+    10000000
   );
-  camera.position.set(0, 800, 0);
-  // camera.lookAt(new THREE.Vector3(0, 0, 0).applyQuaternion(camera.quaternion));
+  camera.position.x = 0;
+  camera.position.y = 1220;
+  camera.position.z = 1350;
 
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.minDistance = -1000;
-  controls.maxDistance = 50;
+  if (useControls) {
+    controls = new OrbitControls(camera, renderer.domElement);
+    // controls.minDistance = -1000;
+    // controls.maxDistance = 50;
+  }
 
-  const axesHelper = new THREE.AxesHelper( 5 );
-  scene.add( axesHelper );
+  const axesHelper = new THREE.AxesHelper(5);
+  scene.add(axesHelper);
 
   scene.add(new THREE.AmbientLight(0x666666));
 
@@ -91,7 +113,7 @@ function init() {
   scene.add(light);
 
   var curves = new THREE.CurvePath();
-  
+
   getSurveyData().then((s) => {
     var first = new THREE.Vector3(
       s.surveys[0].displacementNorthSouth.value,
@@ -102,7 +124,7 @@ function init() {
       var second = new THREE.Vector3(
         s.surveys[i].displacementNorthSouth.value,
         s.surveys[i].displacementEastWest.value,
-        s.surveys[i].trueVerticalDepth.value,
+        s.surveys[i].trueVerticalDepth.value
       );
 
       var linecurve = new THREE.LineCurve3(first, second);
@@ -110,7 +132,7 @@ function init() {
       curves.add(linecurve);
     }
     console.log(curves.getLength());
-    var tube = new THREE.TubeGeometry(curves, 20, 100, 20, false);
+    var tube = new THREE.TubeGeometry(curves, 20, 3, 20, false);
 
     globaltex = createTexture(curves);
 
@@ -123,63 +145,128 @@ function init() {
     );
 
     scene.add(mesh);
+
+  // BOUNDING BOX
+  var helper_bbox = new THREE.BoxHelper(mesh);
+  helper_bbox.update();
+  // scene.add(helper_bbox);
+
+  // FIT ALL:
+  var bbox_radius = helper_bbox.geometry.boundingSphere.radius;
+  if(aspect < 1){
+    frustumHeight = 2 * bbox_radius;
+  }
+  else{
+    frustumHeight = 2 * bbox_radius / aspect;
+  }
+  camera.left = - frustumHeight * aspect / 2;
+  camera.right = frustumHeight * aspect / 2;
+  camera.top = frustumHeight / 2;
+  camera.bottom = - frustumHeight / 2;
+  camera.updateProjectionMatrix();
+  
+  updateCam();
+
   });
 
   initGui();
+}
 
+function updateCam()
+{
+  camera.position.x = Math.floor(API.cameraX);
+  camera.position.y = Math.floor(API.cameraY);
+  camera.position.z = Math.floor(API.cameraZ);
+
+  camera.lookAt(new THREE.Vector3(Math.floor(API.cameraLookX), Math.floor(API.cameraLookY), Math.floor(API.cameraLookZ)));
+  camera.rotation.z = API.cameraRotation;
 }
 
 function updateUvTransform() {
-
   const texture = mesh.material.map;
 
-  if ( texture.matrixAutoUpdate === true ) {
-
-    texture.offset.set( API.offsetX, API.offsetY );
-    texture.repeat.set( API.repeatX, API.repeatY );
-    texture.center.set( API.centerX, API.centerY );
+  if (texture.matrixAutoUpdate === true) {
+    texture.offset.set(API.offsetX, API.offsetY);
+    texture.repeat.set(API.repeatX, API.repeatY);
+    texture.center.set(API.centerX, API.centerY);
     texture.rotation = API.rotation; // rotation is around center
-
   } else {
-
     // setting the matrix uv transform directly
     //texture.matrix.setUvTransform( API.offsetX, API.offsetY, API.repeatX, API.repeatY, API.rotation, API.centerX, API.centerY );
 
     // another way...
     texture.matrix
-        .identity()
-        .translate( - API.centerX, - API.centerY )
-        .rotate( API.rotation )					// I don't understand how rotation can preceed scale, but it seems to be required...
-        .scale( API.repeatX, API.repeatY )
-        .translate( API.centerX, API.centerY )
-        .translate( API.offsetX, API.offsetY );
-
+      .identity()
+      .translate(-API.centerX, -API.centerY)
+      .rotate(API.rotation) // I don't understand how rotation can preceed scale, but it seems to be required...
+      .scale(API.repeatX, API.repeatY)
+      .translate(API.centerX, API.centerY)
+      .translate(API.offsetX, API.offsetY);
   }
 
+  updateCam();
+  
   render();
-
 }
 
 function render() {
-
-  renderer.render( scene, camera );
-
+  renderer.render(scene, camera);
 }
 
 function initGui() {
-
   gui = new GUI();
 
-  gui.add( API, 'offsetX', 0.0, 4000.0 ).name( 'offset.x' ).onChange( updateUvTransform );
-  gui.add( API, 'offsetY', 0.0, 4000.0 ).name( 'offset.y' ).onChange( updateUvTransform );
-  gui.add( API, 'repeatX', 0, 2.0 ).name( 'repeat.x' ).onChange( updateUvTransform );
-  gui.add( API, 'repeatY', 0, 2.0 ).name( 'repeat.y' ).onChange( updateUvTransform );
-  gui.add( API, 'rotation', - Math.PI *2.0, Math.PI *2.0 ).name( 'rotation' ).onChange( updateUvTransform );
-  gui.add( API, 'centerX', 0.0, 4000.0 ).name( 'center.x' ).onChange( updateUvTransform );
-  gui.add( API, 'centerY', 0.0, 4000.0 ).name( 'center.y' ).onChange( updateUvTransform );
-
+  gui
+    .add(API, 'offsetX', 0.0, 4000.0)
+    .name('offset.x')
+    .onChange(updateUvTransform);
+  gui
+    .add(API, 'offsetY', 0.0, 4000.0)
+    .name('offset.y')
+    .onChange(updateUvTransform);
+  gui.add(API, 'repeatX', 0, 2.0).name('repeat.x').onChange(updateUvTransform);
+  gui.add(API, 'repeatY', 0, 2.0).name('repeat.y').onChange(updateUvTransform);
+  gui
+    .add(API, 'rotation', -Math.PI * 2.0, Math.PI * 2.0)
+    .name('rotation')
+    .onChange(updateUvTransform);
+  gui
+    .add(API, 'centerX', 0.0, 4000.0)
+    .name('center.x')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'centerY', 0.0, 4000.0)
+    .name('center.y')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraX', -10000.0, 10000.0)
+    .name('camera.x')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraY', -100000.0, 100000.0)
+    .name('camera.y')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraZ', -10000.0, 10000.0)
+    .name('camera.z')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraLookX', -10000.0, 10000.0)
+    .name('camera.Look.x')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraLookY', -10000.0, 10000.0)
+    .name('camera.Look.y')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraLookZ', -10000.0, 10000.0)
+    .name('camera.Look.z')
+    .onChange(updateUvTransform);
+    gui
+    .add(API, 'cameraRotation', -Math.PI *2.0 , Math.PI *2.0)
+    .name('camera.rotate.z')
+    .onChange(updateUvTransform);
 }
-
 
 interface UnitV1 {
   id: string;
@@ -295,6 +382,6 @@ function getSurveyData(): Promise<SurveyByJobV1Response> {
 function animate() {
   requestAnimationFrame(animate);
 
-  controls.update();
+  if (useControls) controls.update();
   renderer.render(scene, camera);
 }
