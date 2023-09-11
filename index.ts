@@ -44,6 +44,19 @@ function updateData()
     return;
   }
 
+  //reset data again...just to get rid of funny business when the bit is moving
+  var size = curves.getLength();
+  for (let i = 0; i < size; i++) {
+    const stride = i * 4;
+    // set r, g, b, and alpha data values
+    //set to gray for default
+    texData[stride] = 192; // red
+    texData[stride + 1] = 192; // green
+    texData[stride + 2] = 192; // blue
+    texData[stride + 3] = 255; // alpha
+  }
+
+
   for (let j = ASMs.length-1; j > 0; j--) // only go to 1 because we look at the value before to create a gradient.
   {
     var startIndex = curves.getLength() + ASMs[j][0]
@@ -72,22 +85,15 @@ function createTexture(curves) {
   var size = width * height;
   texData = new Uint8Array(4 * size);
   for (let i = 0; i < size; i++) {
-    const stride = i * 4,
-      a1 = i / size,
-      a2 = (i % width) / width;
+    const stride = i * 4;
     // set r, g, b, and alpha data values
     //set to gray for default
     texData[stride] = 192; // red
     texData[stride + 1] = 192; // green
     texData[stride + 2] = 192; // blue
     texData[stride + 3] = 255; // alpha
-
-    // data[stride] = Math.floor(255 * a1); // red
-    // data[stride + 1] = 255 - Math.floor(255 * a1); // green
-    // data[stride + 2] = 0; // blue
-    // data[stride + 3] = 255; // alpha
   }
-  console.log(texData);
+//  console.log(texData);
   var texture = new THREE.DataTexture(texData, width, height);
 
   //texture = new THREE.TextureLoader().load("./textures/uv_grid_opengl.jpg");
