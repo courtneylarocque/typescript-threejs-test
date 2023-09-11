@@ -29,24 +29,66 @@ init();
 animate();
 var rot = 0;
 var globaltex;
+var curves;
+var texData;
+
+//using values from the ASM's as offset from color...need to figure out an algorithm from ECD value to color
+//offset value is considered offset from hole depth (or last survey depth I suppose)
+var ASMs : [number, number][] = [[-100, 1], [-500, 255], [-800, 10], [-2000, 255], [-3000, 20], [-3800, 240]];
+
+function updateData()
+{
+  if (curves == undefined || curves.getLength() == undefined) 
+  {
+    console.log("curves not there yet")
+    return;
+  }
+
+  for (let j = ASMs.length-1; j > 0; j--) // only go to 1 because we look at the value before to create a gradient.
+  {
+    var startIndex = curves.getLength() + ASMs[j][0]
+    var endIndex = curves.getLength() + ASMs[j-1][0];
+
+    var step = (ASMs[j-1][1] - ASMs[j][1])/(endIndex - startIndex);
+    var currvalue = ASMs[j][1];
+
+    for (let i = Math.floor(startIndex); i< Math.floor(endIndex); i++)
+    {
+      var arrPos = i * 4;
+        //console.log(currvalue);
+        texData[arrPos] = 255 - currvalue; // red
+        texData[arrPos + 1] = currvalue; // green
+        texData[arrPos + 2] = 0; // blue
+        texData[arrPos + 3] = 255; // alpha
+        currvalue += step;
+    }
+  }
+
+}
 
 function createTexture(curves) {
   var width = curves.getLength(),
     height = 1;
   var size = width * height;
-  var data = new Uint8Array(4 * size);
+  texData = new Uint8Array(4 * size);
   for (let i = 0; i < size; i++) {
     const stride = i * 4,
       a1 = i / size,
       a2 = (i % width) / width;
     // set r, g, b, and alpha data values
-    data[stride] = Math.floor(255 * a1); // red
-    data[stride + 1] = 255 - Math.floor(255 * a1); // green
-    data[stride + 2] = 0; // blue
-    data[stride + 3] = 255; // alpha
+    //set to gray for default
+    texData[stride] = 192; // red
+    texData[stride + 1] = 192; // green
+    texData[stride + 2] = 192; // blue
+    texData[stride + 3] = 255; // alpha
+
+    // data[stride] = Math.floor(255 * a1); // red
+    // data[stride + 1] = 255 - Math.floor(255 * a1); // green
+    // data[stride + 2] = 0; // blue
+    // data[stride + 3] = 255; // alpha
   }
-  console.log(data);
-  var texture = new THREE.DataTexture(data, width, height);
+  console.log(texData);
+  var texture = new THREE.DataTexture(texData, width, height);
 
   //texture = new THREE.TextureLoader().load("./textures/uv_grid_opengl.jpg");
 
@@ -112,7 +154,7 @@ function init() {
   light.position.copy(camera.position);
   scene.add(light);
 
-  var curves = new THREE.CurvePath();
+  curves = new THREE.CurvePath();
 
   getSurveyData().then((s) => {
     var first = new THREE.Vector3(
@@ -132,7 +174,7 @@ function init() {
       curves.add(linecurve);
     }
     console.log(curves.getLength());
-    var tube = new THREE.TubeGeometry(curves, 20, 3, 20, false);
+    var tube = new THREE.TubeGeometry(curves, 20, 5, 20, false);
 
     globaltex = createTexture(curves);
 
@@ -164,10 +206,32 @@ function init() {
   camera.top = frustumHeight / 2;
   camera.bottom = - frustumHeight / 2;
   camera.updateProjectionMatrix();
+  updateData();
   
   updateCam();
 
   });
+
+
+  function makeData(){
+        
+    var depthchange = Math.random() * 20; // change up to 20ft in a second?
+    var depthdirectionchange = Math.random() < 0.5 ? -1 : 1;
+    
+    for (let i = 0; i < ASMs.length; i++)
+    {
+      ASMs[i][0] += depthchange * depthdirectionchange;
+      //ASMs[i][1] = (depthdirectionchange > 0)? 255 : 0
+      ASMs[i][1] = Math.random() * 255;
+    }
+    //console.log(ASMs);
+    updateData(globaltex);
+
+    renderer.copyTextureToTexture(new THREE.Vector2(), globaltex, globaltex);
+
+  }
+
+  setInterval(makeData, 1000);
 
   initGui();
 }
@@ -379,8 +443,18 @@ function getSurveyData(): Promise<SurveyByJobV1Response> {
     });
 }
 
+
+
+var lastUpdate = Date.now();
 function animate() {
   requestAnimationFrame(animate);
+
+  // if (Date.now() - lastUpdate > 1000 )
+  // {
+  //   updateData(Math.random() < 0.5 ? -1 : 1, globaltex);
+  //   renderer.copyTextureToTexture(new THREE.Vector2(), globaltex, globaltex);
+  //   lastUpdate = Date.now();
+  // }
 
   if (useControls) controls.update();
   renderer.render(scene, camera);
