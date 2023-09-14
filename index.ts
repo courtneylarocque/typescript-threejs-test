@@ -22,7 +22,7 @@ const API = {
   cameraLookX: 4200.0,
   cameraLookY: 0.0,
   cameraLookZ: 1350.0,
-  cameraRotation : 0,
+  cameraRotation: 0,
 };
 
 init();
@@ -34,13 +34,18 @@ var texData;
 
 //using values from the ASM's as offset from color...need to figure out an algorithm from ECD value to color
 //offset value is considered offset from hole depth (or last survey depth I suppose)
-var ASMs : [number, number][] = [[-100, 1], [-500, 255], [-800, 10], [-2000, 255], [-3000, 20], [-3800, 240]];
+var ASMs: [number, number][] = [
+  [-100, 1],
+  [-500, 255],
+  [-800, 10],
+  [-2000, 255],
+  [-3000, 20],
+  [-3800, 240],
+];
 
-function updateData()
-{
-  if (curves == undefined || curves.getLength() == undefined) 
-  {
-    console.log("curves not there yet")
+function updateData() {
+  if (curves == undefined || curves.getLength() == undefined) {
+    console.log('curves not there yet');
     return;
   }
 
@@ -56,27 +61,27 @@ function updateData()
     texData[stride + 3] = 255; // alpha
   }
 
+  for (
+    let j = ASMs.length - 1;
+    j > 0;
+    j-- // only go to 1 because we look at the value before to create a gradient.
+  ) {
+    var startIndex = curves.getLength() + ASMs[j][0];
+    var endIndex = curves.getLength() + ASMs[j - 1][0];
 
-  for (let j = ASMs.length-1; j > 0; j--) // only go to 1 because we look at the value before to create a gradient.
-  {
-    var startIndex = curves.getLength() + ASMs[j][0]
-    var endIndex = curves.getLength() + ASMs[j-1][0];
-
-    var step = (ASMs[j-1][1] - ASMs[j][1])/(endIndex - startIndex);
+    var step = (ASMs[j - 1][1] - ASMs[j][1]) / (endIndex - startIndex);
     var currvalue = ASMs[j][1];
 
-    for (let i = Math.floor(startIndex); i< Math.floor(endIndex); i++)
-    {
+    for (let i = Math.floor(startIndex); i < Math.floor(endIndex); i++) {
       var arrPos = i * 4;
-        //console.log(currvalue);
-        texData[arrPos] = 255 - currvalue; // red
-        texData[arrPos + 1] = currvalue; // green
-        texData[arrPos + 2] = 0; // blue
-        texData[arrPos + 3] = 255; // alpha
-        currvalue += step;
+      //console.log(currvalue);
+      texData[arrPos] = 255 - currvalue; // red
+      texData[arrPos + 1] = currvalue; // green
+      texData[arrPos + 2] = 0; // blue
+      texData[arrPos + 3] = 255; // alpha
+      currvalue += step;
     }
   }
-
 }
 
 function createTexture(curves) {
@@ -93,7 +98,7 @@ function createTexture(curves) {
     texData[stride + 2] = 192; // blue
     texData[stride + 3] = 255; // alpha
   }
-//  console.log(texData);
+  //  console.log(texData);
   var texture = new THREE.DataTexture(texData, width, height);
 
   //texture = new THREE.TextureLoader().load("./textures/uv_grid_opengl.jpg");
@@ -162,23 +167,76 @@ function init() {
 
   curves = new THREE.CurvePath();
 
-  getSurveyData().then((s) => {
-    var first = new THREE.Vector3(
-      s.surveys[0].displacementNorthSouth.value,
-      s.surveys[0].displacementEastWest.value,
-      s.surveys[0].trueVerticalDepth.value
-    );
-    for (let i = 1; i < s.surveys.length; i++) {
-      var second = new THREE.Vector3(
-        s.surveys[i].displacementNorthSouth.value,
-        s.surveys[i].displacementEastWest.value,
-        s.surveys[i].trueVerticalDepth.value
+  getSurveyData()
+    .then((s) => {
+      var first = new THREE.Vector3(
+        s.surveys[0].displacementNorthSouth.value,
+        s.surveys[0].displacementEastWest.value,
+        s.surveys[0].trueVerticalDepth.value
       );
+      for (let i = 1; i < s.surveys.length; i++) {
+        var second = new THREE.Vector3(
+          s.surveys[i].displacementNorthSouth.value,
+          s.surveys[i].displacementEastWest.value,
+          s.surveys[i].trueVerticalDepth.value
+        );
 
-      var linecurve = new THREE.LineCurve3(first, second);
-      first = second;
-      curves.add(linecurve);
-    }
+        var linecurve = new THREE.LineCurve3(first, second);
+        first = second;
+        curves.add(linecurve);
+      }
+    })
+    .catch((err) => {
+      console.log("failed to get curve...just make something up")
+      var points = [
+        new THREE.Vector3(0.0, 0.0, 0.0),
+        new THREE.Vector3(0.25, 0.32, 92.96),
+        new THREE.Vector3(-0.14, 0.87, 154.53),
+        new THREE.Vector3(-0.29, 0.96, 165.49),
+        new THREE.Vector3(-0.38, 1.03, 172.2),
+        new THREE.Vector3(-0.72, 1.3, 190.18),
+        new THREE.Vector3(-1.08, 1.64, 210.15),
+        new THREE.Vector3(-1.22, 1.79, 218.82),
+        new THREE.Vector3(-1.7, 2.27, 246.55),
+        new THREE.Vector3(-1.8, 2.35, 254.47),
+        new THREE.Vector3(-2.04, 2.52, 274.29),
+        new THREE.Vector3(-2.47, 2.88, 301.1),
+        new THREE.Vector3(-2.88, 3.21, 328.53),
+        new THREE.Vector3(-3.04, 3.3, 342.45),
+        new THREE.Vector3(-3.22, 3.39, 356.26),
+        new THREE.Vector3(-3.87, 3.69, 383.69),
+        new THREE.Vector3(-5.09, 4.11, 411.7),
+        new THREE.Vector3(-6.93, 4.72, 438.75),
+        new THREE.Vector3(-9.32, 5.65, 466.07),
+        new THREE.Vector3(-12.12, 6.87, 493.33),
+        new THREE.Vector3(-15.31, 8.38, 520.53),
+        new THREE.Vector3(-18.75, 10.08, 548.0),
+        new THREE.Vector3(-22.15, 11.81, 575.47),
+        new THREE.Vector3(-25.62, 13.51, 602.63),
+        new THREE.Vector3(-29.43, 15.29, 630.97),
+        new THREE.Vector3(-33.32, 17.13, 659.61),
+        new THREE.Vector3(-37.24, 18.81, 687.94),
+        new THREE.Vector3(-41.2, 20.36, 716.27),
+        new THREE.Vector3(-45.08, 21.86, 744.62),
+        new THREE.Vector3(-48.92, 23.27, 772.98),
+        new THREE.Vector3(-52.62, 24.81, 801.35),
+        new THREE.Vector3(-56.17, 26.57, 829.72),
+        new THREE.Vector3(-59.9, 28.4, 858.38),
+        new THREE.Vector3(-63.54, 30.02, 886.75),
+        new THREE.Vector3(-64.69, 30.48, 896.12),
+      ];
+
+      var first = points[0];
+      for (let i = 1; i < points.length; i++) {
+        var second = points[i];
+        var linecurve = new THREE.LineCurve3(first, second);
+        first = second;
+        curves.add(linecurve);
+      }
+    })
+    .then(drawTube);
+
+  function drawTube() {
     console.log(curves.getLength());
     var tube = new THREE.TubeGeometry(curves, 20, 5, 20, false);
 
@@ -194,47 +252,41 @@ function init() {
 
     scene.add(mesh);
 
-  // BOUNDING BOX
-  var helper_bbox = new THREE.BoxHelper(mesh);
-  helper_bbox.update();
-  // scene.add(helper_bbox);
+    // BOUNDING BOX
+    var helper_bbox = new THREE.BoxHelper(mesh);
+    helper_bbox.update();
+    // scene.add(helper_bbox);
 
-  // FIT ALL:
-  var bbox_radius = helper_bbox.geometry.boundingSphere.radius;
-  if(aspect < 1){
-    frustumHeight = 2 * bbox_radius;
+    // FIT ALL:
+    var bbox_radius = helper_bbox.geometry.boundingSphere.radius;
+    if (aspect < 1) {
+      frustumHeight = 2 * bbox_radius;
+    } else {
+      frustumHeight = (2 * bbox_radius) / aspect;
+    }
+    camera.left = (-frustumHeight * aspect) / 2;
+    camera.right = (frustumHeight * aspect) / 2;
+    camera.top = frustumHeight / 2;
+    camera.bottom = -frustumHeight / 2;
+    camera.updateProjectionMatrix();
+    updateData();
+
+    updateCam();
   }
-  else{
-    frustumHeight = 2 * bbox_radius / aspect;
-  }
-  camera.left = - frustumHeight * aspect / 2;
-  camera.right = frustumHeight * aspect / 2;
-  camera.top = frustumHeight / 2;
-  camera.bottom = - frustumHeight / 2;
-  camera.updateProjectionMatrix();
-  updateData();
-  
-  updateCam();
 
-  });
-
-
-  function makeData(){
-        
+  function makeData() {
     var depthchange = Math.random() * 20; // change up to 20ft in a second?
     var depthdirectionchange = Math.random() < 0.5 ? -1 : 1;
-    
-    for (let i = 0; i < ASMs.length; i++)
-    {
+
+    for (let i = 0; i < ASMs.length; i++) {
       ASMs[i][0] += depthchange * depthdirectionchange;
       //ASMs[i][1] = (depthdirectionchange > 0)? 255 : 0
       ASMs[i][1] = Math.random() * 255;
     }
     //console.log(ASMs);
-    updateData(globaltex);
+    updateData();
 
     renderer.copyTextureToTexture(new THREE.Vector2(), globaltex, globaltex);
-
   }
 
   setInterval(makeData, 1000);
@@ -242,13 +294,18 @@ function init() {
   initGui();
 }
 
-function updateCam()
-{
+function updateCam() {
   camera.position.x = Math.floor(API.cameraX);
   camera.position.y = Math.floor(API.cameraY);
   camera.position.z = Math.floor(API.cameraZ);
 
-  camera.lookAt(new THREE.Vector3(Math.floor(API.cameraLookX), Math.floor(API.cameraLookY), Math.floor(API.cameraLookZ)));
+  camera.lookAt(
+    new THREE.Vector3(
+      Math.floor(API.cameraLookX),
+      Math.floor(API.cameraLookY),
+      Math.floor(API.cameraLookZ)
+    )
+  );
   camera.rotation.z = API.cameraRotation;
 }
 
@@ -275,7 +332,7 @@ function updateUvTransform() {
   }
 
   updateCam();
-  
+
   render();
 }
 
@@ -304,36 +361,36 @@ function initGui() {
     .add(API, 'centerX', 0.0, 4000.0)
     .name('center.x')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'centerY', 0.0, 4000.0)
     .name('center.y')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraX', -10000.0, 10000.0)
     .name('camera.x')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraY', -100000.0, 100000.0)
     .name('camera.y')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraZ', -10000.0, 10000.0)
     .name('camera.z')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraLookX', -10000.0, 10000.0)
     .name('camera.Look.x')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraLookY', -10000.0, 10000.0)
     .name('camera.Look.y')
     .onChange(updateUvTransform);
-    gui
+  gui
     .add(API, 'cameraLookZ', -10000.0, 10000.0)
     .name('camera.Look.z')
     .onChange(updateUvTransform);
-    gui
-    .add(API, 'cameraRotation', -Math.PI *2.0 , Math.PI *2.0)
+  gui
+    .add(API, 'cameraRotation', -Math.PI * 2.0, Math.PI * 2.0)
     .name('camera.rotate.z')
     .onChange(updateUvTransform);
 }
@@ -448,8 +505,6 @@ function getSurveyData(): Promise<SurveyByJobV1Response> {
       return response as SurveyByJobV1Response; // Cast the response type to our interface
     });
 }
-
-
 
 var lastUpdate = Date.now();
 function animate() {
